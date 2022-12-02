@@ -1,19 +1,20 @@
 {
-    "name": "j45l/channels-php",
-    "description": "Channels and PooRoutines for PHP",
+    "name": "j45l/coroutine-php",
+    "description": "Coroutines for PHP",
     "keywords": [
-        "threads php concurrent channel"
+        "concurrentPhp php concurrent channel"
     ],
     "license": "MIT",
     "authors": [
         {
             "name": "Jordi Bisbal",
-            "email": "jordi.bisbal+channels@gmail.com"
+            "email": "jordi.bisbal+coroutine@gmail.com"
         }
     ],
     "require": {
         "php": "^8.1",
-        "lstrojny/functional-php": "^1.17"
+        "lstrojny/functional-php": "^1.17",
+        "j45l/functional-php": "3"
     },
     "require-dev": {
         "slevomat/coding-standard": "^7.0",
@@ -30,7 +31,8 @@
     },
     "autoload": {
         "psr-4": {
-            "j45l\\channels\\": "src"
+            "j45l\\concurrentPhp\\": "src",
+            "j45l\\concurrentPhp\\Test\\": "tests"
         },
         "files": [
             "src/FunctionsLoader.php"
@@ -38,7 +40,7 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "j45l\\channels\\Test\\": "tests"
+            "j45l\\concurrentPhp\\Test\\": "tests"
         }
     },
     "scripts": {

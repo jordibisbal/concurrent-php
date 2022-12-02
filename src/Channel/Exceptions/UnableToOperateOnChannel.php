@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace j45l\channels\Channel\Exceptions;
+namespace j45l\concurrentPhp\Channel\Exceptions;
 
 use RuntimeException;
 

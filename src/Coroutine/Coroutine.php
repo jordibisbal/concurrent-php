@@ -2,32 +2,45 @@
 
 declare(strict_types=1);
 
-namespace j45l\channels\Poo;
+namespace j45l\concurrentPhp\Coroutine;
 
 use Closure;
+use Exception;
 use Fiber;
+use j45l\functional\Maybe\Maybe;
 use Throwable;
+
+use function j45l\functional\Either\BecauseException;
+use function j45l\functional\Either\Failure;
+use function j45l\functional\Maybe\None;
+use function j45l\functional\Maybe\Some;
 
 /**
  * @template TReturn
  */
-final class Poo
+abstract class Coroutine
 {
     /** @var Fiber<mixed, mixed, TReturn, mixed> */
     private Fiber $fiber;
 
-    private function __construct(callable $fn)
+    final private function __construct(callable $fn)
     {
-        $this->fiber = new Fiber($fn);
+        $this->fiber = new Fiber(function () use ($fn) {
+            try {
+                return Some($fn());
+            } catch (Exception $exception) {
+                return Failure(BecauseException($exception));
+            }
+        });
     }
 
     /**
      * @param callable $fn
-     * @return self<TReturn>
+     * @return static
      */
     public static function create(callable $fn): self
     {
-        return new self($fn);
+        return new static($fn);
     }
 
     /**
@@ -84,13 +97,15 @@ final class Poo
     }
 
     /**
-     * @return TReturn
+     * @phpstan-return Maybe<TReturn>
+     * @phpstan-ignore-next-line
      */
-    public function returnValue(): mixed
+    public function returnValue(): Maybe
     {
+        /** @phpstan-ignore-next-line  */
         return match (true) {
-            $this->isTerminated() => $this->fiber->getReturn(),
-            default => null
+            $this->isTerminated() => Some($this->fiber->getReturn()),
+            default => None()
         };
     }
 

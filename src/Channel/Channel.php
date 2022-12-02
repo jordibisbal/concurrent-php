@@ -2,17 +2,18 @@
 
 declare(strict_types=1);
 
-namespace j45l\channels\Channel;
+namespace j45l\concurrentPhp\Channel;
 
 use Closure;
 use Fiber;
-use j45l\channels\Channel\Exceptions\UnableToGetFromChannel;
-use j45l\channels\Channel\Exceptions\UnableToOperateOnChannel;
-use j45l\channels\Poo\Poo;
+use j45l\concurrentPhp\Channel\Exceptions\UnableToGetFromChannel;
+use j45l\concurrentPhp\Channel\Exceptions\UnableToOperateOnChannel;
+use j45l\concurrentPhp\Coroutine\Coroutine;
 use Throwable;
 
 use function array_unshift as arrayUnshift;
 use function Functional\compose;
+use function j45l\concurrentPhp\Functions\also;
 use function PHPUnit\Framework\throwException;
 
 /** @template T */
@@ -73,8 +74,8 @@ final class Channel
 
         return match (true) {
             !$hasCount() && $this->closed() => throwException(UnableToGetFromChannel::becauseIsClosed()),
-            $count === 1 =>  Poo::waitFor(fn () => $this->count() >= 1, fn () => $this->getCount(1)[0]),
-            default => Poo::waitFor($hasCount, fn () => $this->getCount($count))
+            $count === 1 =>  Coroutine::waitFor(fn () => $this->count() >= 1, fn () => $this->getCount(1)[0]),
+            default => Coroutine::waitFor($hasCount, fn () => $this->getCount($count))
         };
     }
 
@@ -101,22 +102,32 @@ final class Channel
      * @return TAccumulator
      * @throws Throwable
      */
-    public function reducePoo(Closure $fnAccumulator, mixed $initial, int $count = null): mixed
-    {
+    public function reduce(
+        Closure $fnAccumulator,
+        mixed $initial,
+        int $count = null,
+        bool $untilClosed = true
+    ): mixed {
         $count ??= 1;
-        $acc = $initial;
+        $terminate = false;
+        $accumulator = $initial;
 
-        while (!$this->closed() || $this->count() >= $count) {
+        while (!$terminate) {
             $this->getIf(
                 $count,
-                function ($element) use (&$acc, $fnAccumulator) {
-                    $acc = $fnAccumulator($acc, $element);
+                function ($element) use (&$accumulator, $fnAccumulator) {
+                    $accumulator = $fnAccumulator($accumulator, $element);
                 },
-                fn () => Poo::suspend()
+                function () use (&$terminate, $untilClosed) {
+                    $terminate = match (Fiber::getCurrent()) {
+                        null => true,
+                        default => also(fn () => Coroutine::suspend())($this->closed() || !$untilClosed)
+                    };
+                }
             );
         }
 
-        return $acc;
+        return $accumulator;
     }
 
     /**
