@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace j45l\concurrentPhp\Coroutine;
 
-use function j45l\functional\nop;
-
 abstract class Agent extends Coroutine
 {
-    public function __construct(callable $onException = null)
+    public function __construct()
     {
-        parent::__construct($this->invoke(...), $onException ?? nop());
+        parent::__construct($this->invoke(...));
     }
 
     abstract protected function invoke(): mixed;

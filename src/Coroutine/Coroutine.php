@@ -22,14 +22,20 @@ use function j45l\functional\nop;
  */
 abstract class Coroutine
 {
+    private static int $nextId = 1;
+
+    public readonly int $id;
+
     /** @var Fiber<mixed, mixed, TReturn, mixed> */
     private Fiber $fiber;
 
     /** @var callable */
-    private mixed $onException;
+    private $onThrowable;
 
-    protected function __construct(callable $fn, callable $onException = null)
+    protected function __construct(callable $fn)
     {
+        $this->id = self::$nextId++;
+
         $this->fiber = new Fiber(function () use ($fn) {
             try {
                 return Some($fn());
@@ -37,7 +43,15 @@ abstract class Coroutine
                 return Failure(BecauseException($exception));
             }
         });
-        $this->onException = $onException ?? nop();
+        $this->onThrowable = nop(...);
+    }
+
+    /** @return $this */
+    public function onThrowable(callable $onThrowable = null): self
+    {
+        $this->onThrowable = $onThrowable ?? nop(...);
+
+        return $this;
     }
 
     public static function in(): bool
@@ -75,7 +89,7 @@ abstract class Coroutine
         try {
             $this->fiber->start(...$args);
         } catch (Throwable $throwable) {
-            ($this->onException)($throwable);
+            ($this->onThrowable)($throwable);
         }
 
         return $this;

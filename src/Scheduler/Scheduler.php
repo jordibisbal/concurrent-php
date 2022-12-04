@@ -10,9 +10,11 @@ use j45l\concurrentPhp\Infrastructure\Ticker;
 use Throwable;
 
 use function Functional\each;
+use function Functional\map;
 use function Functional\select;
 use function Functional\some;
 use function j45l\concurrentPhp\Functions\exponentialAverage;
+use function j45l\functional\nop;
 
 class Scheduler
 {
@@ -20,20 +22,33 @@ class Scheduler
     private const DEFAULT_LOAD_EXPONENTIAL_FACTOR = 0.9;
 
     /** @var array<Coroutine<mixed>> */
-    private array $concurrentPhp;
+    private array $coroutines;
 
     private float $loadAverage;
     private Ticker $ticker;
     private float $quantumTime;
     private float $loadExponentialFactor;
+    private mixed $onThrowable;
 
     private function __construct(Ticker $ticker, float $quantumTime, float $loadExponentialFactor)
     {
-        $this->concurrentPhp = [];
+        $this->coroutines = [];
         $this->loadAverage = 0.0;
         $this->ticker = $ticker;
         $this->quantumTime = $quantumTime;
         $this->loadExponentialFactor = $loadExponentialFactor;
+        $this->onThrowable = nop(...);
+    }
+
+    /**
+     * @param callable(Throwable):void|null $onThrowable
+     * @return $this
+     */
+    public function onThrowable(callable $onThrowable = null): static
+    {
+        $this->onThrowable = $onThrowable ?? nop(...);
+
+        return $this;
     }
 
     public static function create(
@@ -53,7 +68,8 @@ class Scheduler
     {
         try {
             $coroutine->start();
-        } catch (Throwable) {
+        } catch (Throwable $throwable) {
+            $this->throwableThrown($throwable);
         }
     }
 
@@ -65,9 +81,9 @@ class Scheduler
     public function run(): void
     {
         $startTime = $this->ticker->time();
-        each($this->concurrentPhp, $this->startCoroutine(...));
+        each($this->coroutines, $this->startCoroutine(...));
 
-        while (some($this->concurrentPhp, fn (Coroutine $coroutine) => !$coroutine->isTerminated())) {
+        while (some($this->coroutines, fn (Coroutine $coroutine) => !$coroutine->isTerminated())) {
             $this->loadAverage = exponentialAverage(
                 [$this->loadAverage, $this->elapsedSince($startTime, $this->ticker) / $this->quantumTime],
                 $this->loadExponentialFactor
@@ -77,7 +93,7 @@ class Scheduler
 
             each(
                 select(
-                    $this->concurrentPhp,
+                    $this->coroutines,
                     fn(Coroutine $coroutine) => $coroutine->isSuspended()
                 ),
                 fn ($coroutine) => $this->resumeCoroutine($coroutine)
@@ -86,14 +102,22 @@ class Scheduler
     }
 
     /**
-     * @param Coroutine<mixed> $concurrentPhp
+     * @param Coroutine<mixed> $coroutines
      * @return Scheduler
      */
-    public function schedule(...$concurrentPhp): Scheduler
+    public function schedule(...$coroutines): Scheduler
     {
-        $this->concurrentPhp = [...$this->concurrentPhp, ...$concurrentPhp];
+        $this->coroutines = [
+            ...$this->coroutines,
+            ...map($coroutines, fn (Coroutine $coroutine) => $coroutine->onThrowable($this->throwableThrown(...)))
+        ];
 
         return $this;
+    }
+
+    protected function throwableThrown(Throwable $throwable): void
+    {
+        ($this->onThrowable)($throwable);
     }
 
     /**
@@ -115,7 +139,9 @@ class Scheduler
     {
         try {
             return $coroutine->resume();
-        } catch (Throwable) {
+        } catch (Throwable $throwable) {
+            $this->throwableThrown($throwable);
+
             return null;
         }
     }
