@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace j45l\concurrentPhp\Test\Unit\Coroutine;
 
-use j45l\concurrentPhp\Coroutine\Cor;
 use j45l\concurrentPhp\Channel\Channel;
-use j45l\concurrentPhp\Coroutine\Scheduler;
+use j45l\concurrentPhp\Coroutine\Cor;
 use j45l\concurrentPhp\Infrastructure\Ticker;
+use j45l\concurrentPhp\Scheduler\Scheduler;
 use j45l\concurrentPhp\Test\Unit\Coroutine\Stubs\TestTicker;
 use PHPUnit\Framework\TestCase;
 use Throwable;
-
 use function Functional\map;
 use function Functional\repeat;
+use function j45l\concurrentPhp\Channel\reduceChannel;
 use function j45l\concurrentPhp\Coroutine\suspend;
 use function j45l\concurrentPhp\Functions\exponentialAverage;
 use function PHPUnit\Framework\assertEquals;
@@ -35,7 +35,7 @@ final class SchedulerExamplesTest extends TestCase
 
         $scheduler->schedule($ping, $pong, $collector)->run();
 
-        assertEquals(['ping', 'pong', 'ping', 'pong'], $collector->returnValue());
+        assertEquals(['ping', 'pong', 'ping', 'pong'], $collector->returnValue()->getOrElse(null));
     }
 
     /** @throws Throwable */
@@ -53,7 +53,7 @@ final class SchedulerExamplesTest extends TestCase
 
         $scheduler->schedule($ping, $pong, $collector)->run();
 
-        assertEquals(['ping', 'pong'], $collector->returnValue());
+        assertEquals(['ping', 'pong'], $collector->returnValue()->getOrElse(null));
     }
 
     /**
@@ -75,7 +75,7 @@ final class SchedulerExamplesTest extends TestCase
 
         assertEquals(
             map(range(0, 9), fn ($rounds) => $this->loadAverage($rounds + 1, 0.3)),
-            $collector->returnValue()
+            $collector->returnValue()->getOrElse(null)
         );
     }
 
@@ -101,7 +101,7 @@ final class SchedulerExamplesTest extends TestCase
     private function collector(Channel $channel): Cor
     {
         return Cor::create(static function () use ($channel) {
-            return $channel->reduce(fn($initial, $element) => [...$initial, $element], []);
+            return reduceChannel($channel, fn($initial, $element) => [...$initial, $element], []);
         });
     }
 
@@ -112,7 +112,7 @@ final class SchedulerExamplesTest extends TestCase
     private function onceCollector(Channel $channel): Cor
     {
         return Cor::create(static function () use ($channel) {
-            return $channel->reduce(fn($initial, $element) => [...$initial, $element], [], untilClosed: false);
+            return reduceChannel($channel, fn($initial, $element) => [...$initial, $element], [], untilClosed: false);
         });
     }
 

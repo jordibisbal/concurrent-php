@@ -7,13 +7,13 @@ namespace j45l\concurrentPhp\Coroutine;
 use Closure;
 use Exception;
 use Fiber;
-use j45l\functional\Maybe\Maybe;
+use j45l\functional\Cats\Maybe\Maybe;
 use Throwable;
 
-use function j45l\functional\Either\BecauseException;
-use function j45l\functional\Either\Failure;
-use function j45l\functional\Maybe\None;
-use function j45l\functional\Maybe\Some;
+use function j45l\functional\Cats\DoTry\BecauseException;
+use function j45l\functional\Cats\DoTry\Failure;
+use function j45l\functional\Cats\Maybe\None;
+use function j45l\functional\Cats\Maybe\Some;
 
 /**
  * @template TReturn
@@ -23,7 +23,7 @@ abstract class Coroutine
     /** @var Fiber<mixed, mixed, TReturn, mixed> */
     private Fiber $fiber;
 
-    final private function __construct(callable $fn)
+    protected function __construct(callable $fn)
     {
         $this->fiber = new Fiber(function () use ($fn) {
             try {
@@ -35,15 +35,6 @@ abstract class Coroutine
     }
 
     /**
-     * @param callable $fn
-     * @return static
-     */
-    public static function create(callable $fn): self
-    {
-        return new static($fn);
-    }
-
-    /**
      * @param mixed $value
      * @throws Throwable
      */
@@ -52,9 +43,7 @@ abstract class Coroutine
         Fiber::suspend($value);
     }
 
-    /**
-     * @throws Throwable
-     */
+    /** @throws Throwable */
     public static function waitFor(Closure $predicate, Closure $do = null): mixed
     {
         $do ??= static fn () => null;
@@ -98,13 +87,11 @@ abstract class Coroutine
 
     /**
      * @phpstan-return Maybe<TReturn>
-     * @phpstan-ignore-next-line
      */
     public function returnValue(): Maybe
     {
-        /** @phpstan-ignore-next-line  */
         return match (true) {
-            $this->isTerminated() => Some($this->fiber->getReturn()),
+            $this->isTerminated() => $this->fiber->getReturn(),
             default => None()
         };
     }

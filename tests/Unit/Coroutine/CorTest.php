@@ -10,6 +10,8 @@ use Throwable;
 
 use function j45l\concurrentPhp\Coroutine\Cor;
 use function j45l\concurrentPhp\Coroutine\suspend;
+use function j45l\functional\Cats\Maybe\None;
+use function j45l\functional\Cats\Maybe\Some;
 use function PHPUnit\Framework\assertEquals;
 use function PHPUnit\Framework\assertFalse;
 use function PHPUnit\Framework\assertNull;
@@ -20,28 +22,28 @@ final class CorTest extends TestCase
     /** @throws Throwable */
     public function testACoroutineCanBeResumed(): void
     {
-        $coroutine = Cor(static function () {
+        $cor42 = Cor(static function () {
             suspend();
             return 42;
         })->start();
 
-        assertTrue($coroutine->isStarted());
-        assertTrue($coroutine->isSuspended());
-        assertFalse($coroutine->isTerminated());
-        assertNull($coroutine->returnValue());
+        assertTrue($cor42->isStarted());
+        assertTrue($cor42->isSuspended());
+        assertFalse($cor42->isTerminated());
+        assertEquals(None(), $cor42->returnValue());
 
-        $coroutine->resume();
+        $cor42->resume();
 
-        assertTrue($coroutine->isStarted());
-        assertFalse($coroutine->isSuspended());
-        assertTrue($coroutine->isTerminated());
-        assertEquals(42, $coroutine->returnValue());
+        assertTrue($cor42->isStarted());
+        assertFalse($cor42->isSuspended());
+        assertTrue($cor42->isTerminated());
+        assertEquals(Some(42), $cor42->returnValue());
     }
 
     /** @throws Throwable */
     public function testACoroutineCanBeStarted(): void
     {
-        $cor42 = $this->Cor42();
+        $cor42 = $this->Cor42()->start();
 
         assertTrue($cor42->isStarted());
         assertFalse($cor42->isSuspended());
@@ -83,11 +85,11 @@ final class CorTest extends TestCase
     /** @throws Throwable */
     public function testACoroutineReturnValueCanBeObtained(): void
     {
-        $coroutine = $this->Cor42();
+        $coroutine = $this->Cor42()->start();
 
         assertTrue($coroutine->isStarted());
         assertFalse($coroutine->isSuspended());
         assertTrue($coroutine->isTerminated());
-        assertEquals(42, $coroutine->returnValue());
+        assertEquals(Some(42), $coroutine->returnValue());
     }
 }

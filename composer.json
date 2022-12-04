@@ -1,5 +1,5 @@
 {
-    "name": "j45l/coroutine-php",
+    "name": "j45l/concurrent-php",
     "description": "Coroutines for PHP",
     "keywords": [
         "concurrentPhp php concurrent channel"
@@ -14,7 +14,7 @@
     "require": {
         "php": "^8.1",
         "lstrojny/functional-php": "^1.17",
-        "j45l/functional-php": "3"
+        "j45l/functional-php": "^3"
     },
     "require-dev": {
         "slevomat/coding-standard": "^7.0",
@@ -31,8 +31,8 @@
     },
     "autoload": {
         "psr-4": {
-            "j45l\\concurrentPhp\\": "src",
-            "j45l\\concurrentPhp\\Test\\": "tests"
+            "j45l\\concurrentPhp\\Test\\": "tests",
+            "j45l\\concurrentPhp\\": "src"
         },
         "files": [
             "src/FunctionsLoader.php"
