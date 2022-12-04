@@ -15,6 +15,7 @@ use function j45l\functional\Cats\Either\BecauseException;
 use function j45l\functional\Cats\Either\Failure;
 use function j45l\functional\Cats\Maybe\None;
 use function j45l\functional\Cats\Maybe\Some;
+use function j45l\functional\nop;
 
 /**
  * @template TReturn
@@ -24,7 +25,10 @@ abstract class Coroutine
     /** @var Fiber<mixed, mixed, TReturn, mixed> */
     private Fiber $fiber;
 
-    protected function __construct(callable $fn)
+    /** @var callable */
+    private mixed $onException;
+
+    protected function __construct(callable $fn, callable $onException = null)
     {
         $this->fiber = new Fiber(function () use ($fn) {
             try {
@@ -33,11 +37,12 @@ abstract class Coroutine
                 return Failure(BecauseException($exception));
             }
         });
+        $this->onException = $onException ?? nop();
     }
 
     public static function in(): bool
     {
-        return isNull(Fiber::getCurrent());
+        return !isNull(Fiber::getCurrent());
     }
 
     /**
@@ -67,7 +72,11 @@ abstract class Coroutine
      */
     public function start(...$args): self
     {
-        $this->fiber->start(...$args);
+        try {
+            $this->fiber->start(...$args);
+        } catch (Throwable $throwable) {
+            ($this->onException)($throwable);
+        }
 
         return $this;
     }

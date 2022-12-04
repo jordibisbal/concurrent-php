@@ -5,18 +5,17 @@ declare(strict_types=1);
 namespace j45l\concurrentPhp\Infrastructure\Http;
 
 use GuzzleHttp\Client as GuzzleClient;
+use GuzzleHttp\Promise\Is;
+use GuzzleHttp\Promise\Utils;
 use j45l\concurrentPhp\Coroutine\Coroutine;
 use j45l\functional\Cats\Either\Either;
 use j45l\functional\Cats\Either\Reason\Reason;
 use Psr\Http\Client\RequestExceptionInterface;
 use Psr\Http\Message\ResponseInterface;
-use Throwable;
 
 use function j45l\functional\Cats\Either\Because;
 use function j45l\functional\Cats\Either\Failure;
 use function j45l\functional\Cats\Either\Success;
-use function j45l\functional\Cats\Maybe\isNone;
-use function j45l\functional\Cats\Maybe\None;
 use function j45l\functional\Cats\Maybe\Some;
 use function j45l\functional\doWhile;
 
@@ -31,43 +30,51 @@ final class HttpClient implements Client
     }
 
     /** @param array<mixed> $config */
-    public static function create(array $config): HttpClient
+    public static function create(array $config = null): HttpClient
     {
-        return new self($config);
+        return new self($config ?? []);
     }
 
     /**
      * @param array<mixed> $options
      * @return Either<Reason,ResponseInterface>
-     * @throws Throwable
      */
-    public function get(string $uri, array $options): Either
+    public function get(string $uri, array $options = null): Either
     {
         return match (true) {
-            Coroutine::in() => $this->getForCoroutine($uri, $options),
-            default =>  $this->getForCoroutine($uri, $options),
+            Coroutine::in() => $this->getForCoroutine($uri, $options ?? []),
+            default => Failure(Because('No in a fiber'))
         };
     }
 
     /**
      * @param array<mixed> $options
      * @return Either<Reason,ResponseInterface>
-     * @throws Throwable
      */
     private function getForCoroutine(string $uri, array $options): Either
     {
-        $promise = $this->client->getAsync($uri, $options);
-        $response = None();
+        $response = null;
 
-        $promise->then(
-            function (ResponseInterface $res) use (&$response) {
-                $response = Some(Success($res));
+        $promise = $this->client->getAsync($uri, $options)
+            ->then(
+                function (ResponseInterface $res) use (&$response) {
+                    $response = Some(Success($res));
+                },
+                function (RequestExceptionInterface $res) use (&$response) {
+                    $response = Some(Failure(Because($res->getMessage())->on($res)));
+                }
+            );
+
+        return doWhile(
+            function () use ($promise) {
+                Utils::queue()->run();
+
+                return !Is::settled($promise);
             },
-            function (RequestExceptionInterface $res) use (&$response) {
-                $response = Some(Failure(Because($res->getMessage())->on($res)));
+            fn () => Coroutine::suspend(),
+            function () use (&$response) {
+                return $response->getOrFail();
             }
         );
-
-        return doWhile(fn () => isNone($response), fn () => Coroutine::suspend(), fn () => $response->getOrFail());
     }
 }

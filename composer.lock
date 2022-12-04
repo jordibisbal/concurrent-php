@@ -339,16 +339,16 @@
         },
         {
             "name": "j45l/functional-php",
-            "version": "3.0.3",
+            "version": "3.0.4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/jordibisbal/functional-php.git",
-                "reference": "5f93a8a17b958148dec2c735da7da528af2fe82c"
+                "reference": "3867ac717ea9cdf7ca0c94f85a13c420148f4818"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/jordibisbal/functional-php/zipball/5f93a8a17b958148dec2c735da7da528af2fe82c",
-                "reference": "5f93a8a17b958148dec2c735da7da528af2fe82c",
+                "url": "https://api.github.com/repos/jordibisbal/functional-php/zipball/3867ac717ea9cdf7ca0c94f85a13c420148f4818",
+                "reference": "3867ac717ea9cdf7ca0c94f85a13c420148f4818",
                 "shasum": ""
             },
             "require": {
@@ -394,9 +394,9 @@
             ],
             "support": {
                 "issues": "https://github.com/jordibisbal/functional-php/issues",
-                "source": "https://github.com/jordibisbal/functional-php/tree/3.0.3"
+                "source": "https://github.com/jordibisbal/functional-php/tree/3.0.4"
             },
-            "time": "2022-12-04T11:23:30+00:00"
+            "time": "2022-12-04T15:59:44+00:00"
         },
         {
             "name": "lstrojny/functional-php",
