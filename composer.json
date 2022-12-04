@@ -14,7 +14,8 @@
     "require": {
         "php": "^8.1",
         "lstrojny/functional-php": "^1.17",
-        "j45l/functional-php": "^3"
+        "j45l/functional-php": "^3",
+        "guzzlehttp/guzzle": "^7.0"
     },
     "require-dev": {
         "slevomat/coding-standard": "^7.0",

@@ -10,8 +10,9 @@ use Fiber;
 use j45l\functional\Cats\Maybe\Maybe;
 use Throwable;
 
-use function j45l\functional\Cats\DoTry\BecauseException;
-use function j45l\functional\Cats\DoTry\Failure;
+use function is_null as isNull;
+use function j45l\functional\Cats\Either\BecauseException;
+use function j45l\functional\Cats\Either\Failure;
 use function j45l\functional\Cats\Maybe\None;
 use function j45l\functional\Cats\Maybe\Some;
 
@@ -32,6 +33,11 @@ abstract class Coroutine
                 return Failure(BecauseException($exception));
             }
         });
+    }
+
+    public static function in(): bool
+    {
+        return isNull(Fiber::getCurrent());
     }
 
     /**
