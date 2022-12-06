@@ -4,19 +4,20 @@ declare(strict_types=1);
 
 namespace j45l\concurrentPhp\Coroutine;
 
+use Closure;
 use j45l\functional\Cats\Maybe\Maybe;
 
 /**
  * @template TReturn
  * @extends Coroutine<TReturn>
  */
-class Cor extends Coroutine
+class SimpleCoroutine extends Coroutine
 {
     /**
-     * @param callable():Maybe<TReturn> $fn
-     * @return $this
+     * @param Closure():Maybe<TReturn> $fn
+     * @return self<TReturn>
      */
-    public static function create(callable $fn): self
+    public static function create(Closure $fn): self
     {
         return new self($fn);
     }

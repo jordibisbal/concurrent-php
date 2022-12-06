@@ -29,12 +29,14 @@ abstract class Coroutine
     /** @var Fiber<mixed, mixed, TReturn, mixed> */
     private Fiber $fiber;
 
-    /** @var callable */
+    /** @var Closure */
     private $onThrowable;
+    readonly public string $name;
 
-    protected function __construct(callable $fn)
+    protected function __construct(Closure $fn, string $name = null)
     {
         $this->id = self::$nextId++;
+        $this->name = $name ?? 'unnamed';
 
         $this->fiber = new Fiber(function () use ($fn) {
             try {
@@ -47,7 +49,7 @@ abstract class Coroutine
     }
 
     /** @return $this */
-    public function onThrowable(callable $onThrowable = null): self
+    public function onThrowable(Closure $onThrowable = null): self
     {
         $this->onThrowable = $onThrowable ?? nop(...);
 

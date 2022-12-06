@@ -80,6 +80,7 @@ final class Channel
 
     /**
      * @throws Throwable
+     * @return T
      */
     public function get(): mixed
     {

@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace j45l\concurrentPhp\Coroutine;
 
+use Closure;
 use Throwable;
 
 /**
  * @template TResult
- * @param callable(): TResult $fn
- * @return Cor<TResult>
+ * @param Closure(): TResult $fn
+ * @return SimpleCoroutine<TResult>
  * @throws Throwable
  */
-function Cor(callable $fn): Cor
+function SimpleCoroutine(Closure $fn): SimpleCoroutine
 {
-    return Cor::create($fn);
+    return SimpleCoroutine::create($fn);
 }

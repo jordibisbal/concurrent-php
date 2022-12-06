@@ -19,18 +19,18 @@ use function j45l\functional\nop;
 class Scheduler
 {
     private const DEFAULT_QUANTUM_TIME = 1 / 1_000;
-    private const DEFAULT_LOAD_EXPONENTIAL_FACTOR = 0.9;
+    protected const DEFAULT_LOAD_EXPONENTIAL_FACTOR = 0.9;
 
     /** @var array<Coroutine<mixed>> */
     private array $coroutines;
 
     private float $loadAverage;
-    private Ticker $ticker;
-    private float $quantumTime;
-    private float $loadExponentialFactor;
+    protected Ticker $ticker;
+    protected float $quantumTime;
+    protected float $loadExponentialFactor;
     private mixed $onThrowable;
 
-    private function __construct(Ticker $ticker, float $quantumTime, float $loadExponentialFactor)
+    protected function __construct(Ticker $ticker, float $quantumTime, float $loadExponentialFactor)
     {
         $this->coroutines = [];
         $this->loadAverage = 0.0;
@@ -38,17 +38,6 @@ class Scheduler
         $this->quantumTime = $quantumTime;
         $this->loadExponentialFactor = $loadExponentialFactor;
         $this->onThrowable = nop(...);
-    }
-
-    /**
-     * @param callable(Throwable):void|null $onThrowable
-     * @return $this
-     */
-    public function onThrowable(callable $onThrowable = null): static
-    {
-        $this->onThrowable = $onThrowable ?? nop(...);
-
-        return $this;
     }
 
     public static function create(
@@ -63,19 +52,20 @@ class Scheduler
         );
     }
 
-    /** @param Coroutine<mixed> $coroutine */
-    private function startCoroutine(Coroutine $coroutine): void
-    {
-        try {
-            $coroutine->start();
-        } catch (Throwable $throwable) {
-            $this->throwableThrown($throwable);
-        }
-    }
-
     public function loadAverage(): float
     {
         return $this->loadAverage;
+    }
+
+    /**
+     * @param Closure(Throwable):void|null $onThrowable
+     * @return $this
+     */
+    public function onThrowable(callable $onThrowable = null): static
+    {
+        $this->onThrowable = $onThrowable ?? nop(...);
+
+        return $this;
     }
 
     public function run(): void
@@ -102,10 +92,10 @@ class Scheduler
     }
 
     /**
-     * @param Coroutine<mixed> $coroutines
-     * @return Scheduler
+     * @phpstan-param Coroutine<mixed> $coroutines
+     * @return static
      */
-    public function schedule(...$coroutines): Scheduler
+    public function schedule(Coroutine ...$coroutines): static
     {
         $this->coroutines = [
             ...$this->coroutines,
@@ -115,11 +105,6 @@ class Scheduler
         return $this;
     }
 
-    protected function throwableThrown(Throwable $throwable): void
-    {
-        ($this->onThrowable)($throwable);
-    }
-
     /**
      * @param mixed $startTime
      * @return float
@@ -127,6 +112,11 @@ class Scheduler
     protected function next(mixed $startTime): float
     {
         return $this->sleepUntil($startTime + $this->quantumTime, $this->ticker);
+    }
+
+    protected function throwableThrown(Throwable $throwable): void
+    {
+        ($this->onThrowable)($throwable);
     }
 
     private function elapsedSince(float $time, Ticker $ticker): float
@@ -151,5 +141,28 @@ class Scheduler
         $ticker->sleep(max(0, $targetTime - $ticker->time()));
 
         return $ticker->time();
+    }
+
+    /** @param Coroutine<mixed> $coroutine */
+    private function startCoroutine(Coroutine $coroutine): void
+    {
+        try {
+            $coroutine->start();
+        } catch (Throwable $throwable) {
+            $this->throwableThrown($throwable);
+        }
+    }
+
+    /**
+     * @return array<Coroutine<mixed>>
+     */
+    public function suspendedCoroutines(string $name = null): array
+    {
+        return select(
+            $this->coroutines,
+            fn (Coroutine $coroutine) =>
+                ($coroutine->name === $name || is_null($name))
+                && $coroutine->isSuspended()
+        );
     }
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace j45l\concurrentPhp\Test\Unit\Coroutine;
 
 use j45l\concurrentPhp\Channel\Channel;
-use j45l\concurrentPhp\Coroutine\Cor;
+use j45l\concurrentPhp\Coroutine\SimpleCoroutine;
 use j45l\concurrentPhp\Infrastructure\Ticker;
 use j45l\concurrentPhp\Scheduler\Scheduler;
 use j45l\concurrentPhp\Test\Unit\Coroutine\Stubs\TestTicker;
@@ -81,11 +81,11 @@ final class SchedulerExamplesTest extends TestCase
 
     /**
      * @param Channel<string> $channel
-     * @return Cor<string>
+     * @return SimpleCoroutine<string>
      */
-    private function sender(Channel $channel, string $message, int $count, float $time, Ticker $ticker): Cor
+    private function sender(Channel $channel, string $message, int $count, float $time, Ticker $ticker): SimpleCoroutine
     {
-        return Cor::create(static function () use ($channel, $count, $message, $time, $ticker) {
+        return SimpleCoroutine::create(static function () use ($channel, $count, $message, $time, $ticker) {
             repeat(function () use ($channel, $message, $time, $ticker) {
                 $channel->put($message);
                 $ticker->sleep($time);
@@ -96,37 +96,37 @@ final class SchedulerExamplesTest extends TestCase
 
     /**
      * @param Channel<string> $channel
-     * @return Cor<array<string>>
+     * @return SimpleCoroutine<array<string>>
      */
-    private function collector(Channel $channel): Cor
+    private function collector(Channel $channel): SimpleCoroutine
     {
-        return Cor::create(static function () use ($channel) {
+        return SimpleCoroutine::create(static function () use ($channel) {
             return reduceChannel($channel, fn($initial, $element) => [...$initial, $element], []);
         });
     }
 
     /**
      * @param Channel<string> $channel
-     * @return Cor<array<string>>
+     * @return SimpleCoroutine<array<string>>
      */
-    private function onceCollector(Channel $channel): Cor
+    private function onceCollector(Channel $channel): SimpleCoroutine
     {
-        return Cor::create(static function () use ($channel) {
+        return SimpleCoroutine::create(static function () use ($channel) {
             return reduceChannel($channel, fn($initial, $element) => [...$initial, $element], [], untilClosed: false);
         });
     }
 
     /**
      * @param Channel<string> $channel
-     * @return Cor<array<float>>
+     * @return SimpleCoroutine<array<float>>
      */
-    private function loadMonitor(Scheduler $scheduler, Channel $channel): Cor
+    private function loadMonitor(Scheduler $scheduler, Channel $channel): SimpleCoroutine
     {
-        return Cor::create(static function () use ($scheduler, $channel) {
+        return SimpleCoroutine::create(static function () use ($scheduler, $channel) {
             $loads = [];
             while (!$channel->closed()) {
                 $loads[] = $scheduler->loadAverage();
-                Cor::suspend();
+                SimpleCoroutine::suspend();
             }
 
             return $loads;
