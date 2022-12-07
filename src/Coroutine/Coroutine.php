@@ -8,6 +8,7 @@ use Closure;
 use Exception;
 use Fiber;
 use j45l\functional\Cats\Maybe\Maybe;
+use RuntimeException;
 use Throwable;
 
 use function is_null as isNull;
@@ -17,23 +18,21 @@ use function j45l\functional\Cats\Maybe\None;
 use function j45l\functional\Cats\Maybe\Some;
 use function j45l\functional\nop;
 
-/**
- * @template TReturn
- */
-abstract class Coroutine
+class Coroutine
 {
     private static int $nextId = 1;
 
     public readonly int $id;
 
-    /** @var Fiber<mixed, mixed, TReturn, mixed> */
+    /** @var Fiber<mixed, mixed, mixed, mixed> */
     private Fiber $fiber;
 
     /** @var Closure */
-    private $onThrowable;
+    protected Closure $onThrowable;
+
     readonly public string $name;
 
-    protected function __construct(Closure $fn, string $name = null)
+    public function __construct(Closure $fn, string $name = null)
     {
         $this->id = self::$nextId++;
         $this->name = $name ?? 'unnamed';
@@ -49,7 +48,7 @@ abstract class Coroutine
     }
 
     /** @return $this */
-    public function onThrowable(Closure $onThrowable = null): self
+    public function setOnThrowable(Closure $onThrowable = null): self
     {
         $this->onThrowable = $onThrowable ?? nop(...);
 
@@ -63,14 +62,16 @@ abstract class Coroutine
 
     /**
      * @param mixed $value
-     * @throws Throwable
      */
     public static function suspend(mixed $value = null): void
     {
-        Fiber::suspend($value);
+        try {
+            Fiber::suspend($value);
+        } catch (Throwable $throwable) {
+            throw new RuntimeException($throwable->getMessage(), 0, $throwable);
+        }
     }
 
-    /** @throws Throwable */
     public static function waitFor(Closure $predicate, Closure $do = null): mixed
     {
         $do ??= static fn () => null;
@@ -83,8 +84,6 @@ abstract class Coroutine
 
     /**
      * @param array<mixed> $args
-     * @throws Throwable
-     * @return self<TReturn>
      */
     public function start(...$args): self
     {
@@ -109,15 +108,18 @@ abstract class Coroutine
 
     /**
      * @return mixed
-     * @throws Throwable
      */
     public function resume(): mixed
     {
-        return $this->fiber->resume();
+        try {
+            return $this->fiber->resume();
+        } catch (Throwable $throwable) {
+            throw new RuntimeException($throwable->getMessage(), 0, $throwable);
+        }
     }
 
     /**
-     * @phpstan-return Maybe<TReturn>
+     * @phpstan-return Maybe<mixed>
      */
     public function returnValue(): Maybe
     {

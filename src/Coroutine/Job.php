@@ -6,19 +6,13 @@ namespace j45l\concurrentPhp\Coroutine;
 
 use Closure;
 
-final class Task
+final class Job
 {
-    /**
-     * @param Closure(): Agent $factory
-     */
     private function __construct(readonly public Closure $factory, readonly int $copies)
     {
     }
 
-    /**
-     * @param Closure(): Agent $factory
-     */
-    public static function create(Closure $factory, int $copies): Task
+    public static function create(Closure $factory, int $copies): Job
     {
         return new self($factory, $copies);
     }

@@ -14,10 +14,9 @@ use function array_pop as arrayPop;
 use function array_unshift as arrayUnshift;
 use function Functional\compose;
 use function j45l\functional\doWhile;
-use function PHPUnit\Framework\throwException;
 
 /** @template T */
-final class Channel
+class Channel
 {
     /** @var array<T> */
     private array $buffer;
@@ -27,19 +26,15 @@ final class Channel
     private Closure $closeOn;
 
     private int $capacity;
+    private string $name;
 
-    private function __construct(int $capacity)
+    public function __construct(int $capacity = null, string $name = null)
     {
-        $this->capacity = $capacity;
+        $this->capacity = $capacity ?? 100;
         $this->buffer = [];
         $this->closed = false;
         $this->closeOn = static fn () => false;
-    }
-
-    /** @return Channel<T> */
-    public static function create(int $capacity = null): Channel
-    {
-        return new self($capacity ?? 100);
+        $this->name = $name ?? 'unnamed';
     }
 
     public function close(): void
@@ -48,7 +43,7 @@ final class Channel
     }
 
     /** @return self<T> */
-    public function closeOn(Closure $predicate): self
+    public function setCloseOn(Closure $predicate): self
     {
         $this->closeOn = $predicate;
 
@@ -73,29 +68,29 @@ final class Channel
         return empty($this->buffer);
     }
 
+    public function hasSome(): bool
+    {
+        return !empty($this->buffer);
+    }
+
     public function full(): bool
     {
         return $this->count() >= $this->capacity;
     }
 
     /**
-     * @throws Throwable
      * @return T
      */
     public function get(): mixed
     {
         $this->guardFiber();
 
-        return match (true) {
-            $this->empty() && $this->closed() => throwException(UnableToGetFromChannel::becauseIsClosed()),
-            default =>  Coroutine::waitFor(fn () => !$this->empty(), fn () => arrayPop($this->buffer))
-        };
+        return Coroutine::waitFor(fn () => $this->hasSome(), fn () => arrayPop($this->buffer));
     }
 
     /**
      * @param T $data
      * @return $this
-     * @throws Throwable
      */
     public function put(mixed $data): self
     {
@@ -114,5 +109,15 @@ final class Channel
             Fiber::getCurrent() === null => throw UnableToGetFromChannel::becauseNotInAFiber(),
             default => null
         };
+    }
+
+    public function capacity(): int
+    {
+        return $this->capacity;
+    }
+
+    public function name(): string
+    {
+        return $this->name;
     }
 }

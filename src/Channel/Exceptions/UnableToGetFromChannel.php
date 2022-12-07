@@ -8,9 +8,9 @@ use RuntimeException;
 
 final class UnableToGetFromChannel extends RuntimeException
 {
-    public static function becauseNotInAFiber(): self
+    public static function becauseNotInAFiber(): RuntimeException
     {
-        return new self(
+        return new RuntimeException(
             'Unable to get from channel as Channel::get() has not been called from inside a Fiber.'
         );
     }

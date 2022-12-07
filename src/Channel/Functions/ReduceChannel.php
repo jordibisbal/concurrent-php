@@ -1,10 +1,12 @@
 <?php
+
 declare(strict_types=1);
 
 namespace j45l\concurrentPhp\Channel;
 
 use Closure;
 use j45l\concurrentPhp\Coroutine\Coroutine;
+use Throwable;
 
 /**
  * @template T
@@ -13,6 +15,7 @@ use j45l\concurrentPhp\Coroutine\Coroutine;
  * @param Closure(TAccumulator, T|array<T>):TAccumulator $fnAccumulator
  * @param TAccumulator $initial
  * @return TAccumulator
+ * @throws Throwable
  */
 function reduceChannel(
     Channel $channel,

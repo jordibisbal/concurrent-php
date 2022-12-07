@@ -7,13 +7,8 @@ namespace j45l\concurrentPhp\Coroutine;
 use Closure;
 use j45l\functional\Cats\Maybe\Maybe;
 
-/**
- * @template TReturn
- * @extends Coroutine<TReturn>
- */
 final class SimpleAgent extends Agent
 {
-
     private Closure $fn;
 
     public function __construct(Closure $fn, string $name = null)
@@ -23,8 +18,7 @@ final class SimpleAgent extends Agent
     }
 
     /**
-     * @param Closure():Maybe<TReturn> $fn
-     * @return self<TReturn>
+     * @param Closure():Maybe<mixed> $fn
      */
     public static function create(Closure $fn, string $name = null): self
     {

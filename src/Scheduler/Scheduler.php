@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace j45l\concurrentPhp\Scheduler;
 
+use Closure;
 use j45l\concurrentPhp\Coroutine\Coroutine;
-use j45l\concurrentPhp\Infrastructure\SystemTicker;
 use j45l\concurrentPhp\Infrastructure\Ticker;
 use Throwable;
 
@@ -18,38 +18,31 @@ use function j45l\functional\nop;
 
 class Scheduler
 {
-    private const DEFAULT_QUANTUM_TIME = 1 / 1_000;
+    private const DEFAULT_QUANTUM_TIME = 1 / 100;
     protected const DEFAULT_LOAD_EXPONENTIAL_FACTOR = 0.9;
 
-    /** @var array<Coroutine<mixed>> */
-    private array $coroutines;
-
-    private float $loadAverage;
+    protected static int $nextId = 1;
+    protected int $id;
     protected Ticker $ticker;
     protected float $quantumTime;
     protected float $loadExponentialFactor;
-    private mixed $onThrowable;
+    /** @var array<Task> */
+    private array $tasks;
+    private float $loadAverage;
+    protected mixed $onThrowable;
+    private bool $running;
 
-    protected function __construct(Ticker $ticker, float $quantumTime, float $loadExponentialFactor)
+    public function __construct(Ticker $ticker, float $quantumTime = null, float $loadExponentialFactor = null)
     {
-        $this->coroutines = [];
+        $this->id = self::$nextId++;
+
+        $this->running = false;
+        $this->tasks = [];
         $this->loadAverage = 0.0;
         $this->ticker = $ticker;
-        $this->quantumTime = $quantumTime;
-        $this->loadExponentialFactor = $loadExponentialFactor;
+        $this->quantumTime = $quantumTime  ?? self::DEFAULT_QUANTUM_TIME;
+        $this->loadExponentialFactor = $loadExponentialFactor ?? self::DEFAULT_LOAD_EXPONENTIAL_FACTOR;
         $this->onThrowable = nop(...);
-    }
-
-    public static function create(
-        Ticker $ticker = null,
-        float $quantumSeconds = null,
-        float $loadExponentialFactor = null
-    ): Scheduler {
-        return new self(
-            $ticker ?? SystemTicker::create(),
-            $quantumSeconds ?? self::DEFAULT_QUANTUM_TIME,
-            $loadExponentialFactor ?? self::DEFAULT_LOAD_EXPONENTIAL_FACTOR
-        );
     }
 
     public function loadAverage(): float
@@ -58,51 +51,109 @@ class Scheduler
     }
 
     /**
-     * @param Closure(Throwable):void|null $onThrowable
+     * @phpstan-param (Closure(Throwable):void)|null $onThrowable
      * @return $this
      */
-    public function onThrowable(callable $onThrowable = null): static
+    public function setOnThrowable(callable $onThrowable = null): static
     {
         $this->onThrowable = $onThrowable ?? nop(...);
+        each($this->tasks, static fn (Task $task) => $task->coroutine->setOnThrowable($onThrowable));
 
         return $this;
     }
 
     public function run(): void
     {
-        $startTime = $this->ticker->time();
-        each($this->coroutines, $this->startCoroutine(...));
+        if ($this->running) {
+            return;
+        }
 
-        while (some($this->coroutines, fn (Coroutine $coroutine) => !$coroutine->isTerminated())) {
+        $this->running = true;
+
+        $startTime = $this->ticker->time();
+
+        while (some($this->tasks, fn (Task $task) => !$task->coroutine->isTerminated())) {
             $this->loadAverage = exponentialAverage(
                 [$this->loadAverage, $this->elapsedSince($startTime, $this->ticker) / $this->quantumTime],
                 $this->loadExponentialFactor
             );
 
+            each($this->notStartedTasks(), $this->startTask(...));
+
             $startTime = $this->next($startTime);
 
-            each(
-                select(
-                    $this->coroutines,
-                    fn(Coroutine $coroutine) => $coroutine->isSuspended()
-                ),
-                fn ($coroutine) => $this->resumeCoroutine($coroutine)
-            );
+            each($this->suspendedTasks(), fn (Task $task) => $this->resumeTask($task));
         }
+
+        $this->running = false;
+    }
+
+    /** @phpstan-param Task|Coroutine|(callable():mixed) $tasks */
+    public function schedule(mixed ...$tasks): static
+    {
+        $this->tasks = [
+            ...$this->tasks,
+            ...map($tasks, fn ($task) => Task($task))
+        ];
+
+        $this->setOnThrowable($this->onThrowable);
+
+        return $this;
+    }
+
+    public function subordinated(Closure ...$fns): self
+    {
+        return $this->schedule(...map($fns, fn ($fn) => $fn($this)));
     }
 
     /**
-     * @phpstan-param Coroutine<mixed> $coroutines
-     * @return static
+     * @return array<Task>
      */
-    public function schedule(Coroutine ...$coroutines): static
+    public function suspendedTasks(string $name = null): array
     {
-        $this->coroutines = [
-            ...$this->coroutines,
-            ...map($coroutines, fn (Coroutine $coroutine) => $coroutine->onThrowable($this->throwableThrown(...)))
-        ];
+        return select(
+            $this->tasks,
+            fn (Task $tasks) =>
+                $tasks->coroutine->isSuspended() &&
+                ($tasks->pool === $name || is_null($name))
+        );
+    }
 
-        return $this;
+    /**
+     * @return array<Task>
+     */
+    public function terminatedTasks(string $name = null): array
+    {
+        return select(
+            $this->tasks,
+            fn (Task $tasks) =>
+                $tasks->coroutine->isTerminated() &&
+                ($tasks->pool === $name || is_null($name))
+        );
+    }
+
+    /**
+     * @return array<Task>
+     */
+    public function aliveTasks(string $name = null): array
+    {
+        return select(
+            $this->tasks,
+            fn (Task $task) =>
+                !$task->coroutine->isTerminated()
+                && ($task->pool === $name || is_null($name))
+        );
+    }
+
+    /**
+     * @return array<Task>
+     */
+    protected function notStartedTasks(): array
+    {
+        return select(
+            $this->tasks,
+            fn(Task $task) => !($task->coroutine->isStarted())
+        );
     }
 
     /**
@@ -124,11 +175,10 @@ class Scheduler
         return $ticker->time() - $time;
     }
 
-    /** @param Coroutine<mixed> $coroutine */
-    private function resumeCoroutine(Coroutine $coroutine): mixed
+    protected function resumeTask(Task $task): mixed
     {
         try {
-            return $coroutine->resume();
+            return $task->coroutine->resume();
         } catch (Throwable $throwable) {
             $this->throwableThrown($throwable);
 
@@ -143,26 +193,27 @@ class Scheduler
         return $ticker->time();
     }
 
-    /** @param Coroutine<mixed> $coroutine */
-    private function startCoroutine(Coroutine $coroutine): void
+    private function startTask(Task $coroutine): void
     {
         try {
-            $coroutine->start();
+            $coroutine->coroutine->start();
         } catch (Throwable $throwable) {
             $this->throwableThrown($throwable);
         }
     }
 
-    /**
-     * @return array<Coroutine<mixed>>
-     */
-    public function suspendedCoroutines(string $name = null): array
+    public function ticker(): Ticker
     {
-        return select(
-            $this->coroutines,
-            fn (Coroutine $coroutine) =>
-                ($coroutine->name === $name || is_null($name))
-                && $coroutine->isSuspended()
-        );
+        return $this->ticker;
+    }
+
+    public function quantumTime(): float
+    {
+        return $this->quantumTime;
+    }
+
+    public function loadExponentialFactor(): float
+    {
+        return $this->loadExponentialFactor;
     }
 }

@@ -8,13 +8,12 @@ use j45l\concurrentPhp\Coroutine\Coroutine;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
-use function j45l\concurrentPhp\Coroutine\SimpleCoroutine;
+use function j45l\concurrentPhp\Coroutine\Coroutine;
 use function j45l\concurrentPhp\Coroutine\suspend;
 use function j45l\functional\Cats\Maybe\None;
 use function j45l\functional\Cats\Maybe\Some;
 use function PHPUnit\Framework\assertEquals;
 use function PHPUnit\Framework\assertFalse;
-use function PHPUnit\Framework\assertNull;
 use function PHPUnit\Framework\assertTrue;
 
 final class CorTest extends TestCase
@@ -22,7 +21,7 @@ final class CorTest extends TestCase
     /** @throws Throwable */
     public function testACoroutineCanBeResumed(): void
     {
-        $cor42 = SimpleCoroutine(static function () {
+        $cor42 = Coroutine(static function () {
             suspend();
             return 42;
         })->start();
@@ -56,7 +55,7 @@ final class CorTest extends TestCase
      */
     private function Cor42(): Coroutine // phpcs:ignore
     {
-        return SimpleCoroutine(static function () {
+        return Coroutine(static function () {
             return 42;
         });
     }
@@ -64,7 +63,7 @@ final class CorTest extends TestCase
     /** @throws Throwable */
     public function testACoroutineCanBeSuspended(): void
     {
-        $coroutine = SimpleCoroutine(static function () {
+        $coroutine = Coroutine(static function () {
             Coroutine::suspend();
             return 42;
         })->start();
@@ -79,7 +78,7 @@ final class CorTest extends TestCase
      */
     public function testACoroutineIsCreatedNotStated(): void
     {
-        assertFalse(SimpleCoroutine(static fn () => null)->isStarted());
+        assertFalse(Coroutine(static fn () => null)->isStarted());
     }
 
     /** @throws Throwable */
