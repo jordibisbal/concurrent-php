@@ -16,11 +16,15 @@ use function j45l\functional\Cats\Either\BecauseException;
 use function j45l\functional\Cats\Either\Failure;
 use function j45l\functional\Cats\Maybe\None;
 use function j45l\functional\Cats\Maybe\Some;
+use function j45l\functional\first;
 use function j45l\functional\nop;
 
 class Coroutine
 {
     private static int $nextId = 1;
+
+    /** @var array<self> */
+    private static array $coroutinesRegistry = [];
 
     public readonly int $id;
 
@@ -36,6 +40,7 @@ class Coroutine
     {
         $this->id = self::$nextId++;
         $this->name = $name ?? 'unnamed';
+        $this->onThrowable = nop(...);
 
         $this->fiber = new Fiber(function () use ($fn) {
             try {
@@ -44,7 +49,19 @@ class Coroutine
                 return Failure(BecauseException($exception));
             }
         });
-        $this->onThrowable = nop(...);
+
+        self::$coroutinesRegistry[$this->id] = $this;
+    }
+
+    public function __destruct()
+    {
+        unset(self::$coroutinesRegistry[$this->id]);
+    }
+
+    /** @param Fiber<mixed, mixed, mixed, mixed> $fiber */
+    public static function byFiber(Fiber $fiber): self|null
+    {
+        return first(self::$coroutinesRegistry, fn (Coroutine $element) => $element->fiber === $fiber);
     }
 
     /** @return $this */

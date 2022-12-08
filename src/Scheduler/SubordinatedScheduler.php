@@ -7,9 +7,9 @@ namespace j45l\concurrentPhp\Scheduler;
 use j45l\concurrentPhp\Coroutine\Coroutine;
 use Throwable;
 
-class SubordinatedScheduler extends Scheduler
+class SubordinatedScheduler extends MainScheduler
 {
-    protected function next(mixed $startTime): float
+    protected function nextLoop(mixed $startTime): float
     {
         try {
             Coroutine::suspend();
@@ -17,6 +17,11 @@ class SubordinatedScheduler extends Scheduler
             ($this->onThrowable)($throwable);
         }
 
+        return 1;
+    }
+
+    public function loadAverage(): float
+    {
         return 1;
     }
 }

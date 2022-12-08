@@ -7,19 +7,21 @@ namespace j45l\concurrentPhp\Coroutine;
 use Closure;
 use j45l\concurrentPhp\Scheduler\Scheduler;
 use j45l\concurrentPhp\Scheduler\SubordinatedScheduler;
+use j45l\concurrentPhp\Scheduler\Task;
 use Throwable;
 
 use function Functional\each;
+use function j45l\concurrentPhp\Functions\also;
 use function j45l\concurrentPhp\Scheduler\SubordinatedScheduler;
 use function j45l\concurrentPhp\Scheduler\Task;
-use function j45l\functional\doUntil;
 use function j45l\functional\doWhile;
+use function j45l\functional\with;
 
-final class Pool extends Coroutine
+class Pool extends Coroutine
 {
     private static int $jobId = 1;
 
-    private SubordinatedScheduler $scheduler;
+    private Scheduler $scheduler;
 
     /** @var array<Job> */
     private array $jobs = [];
@@ -30,11 +32,25 @@ final class Pool extends Coroutine
      */
     public function __construct(Scheduler $scheduler, Closure $endPredicate, string $name)
     {
-        $this->endPredicate = $endPredicate;
-        $this->scheduler = SubordinatedScheduler($scheduler)
-            ->schedule(Task(Coroutine($this->loop(...)), 'loop'));
-
         parent::__construct($this->loop(...), $name);
+
+        $this->endPredicate = $endPredicate;
+        $this->scheduler = $this->buildSubordinatedScheduler($scheduler)
+            ->schedule(Task($this->loop(...), $this->poolName()));
+    }
+
+    /**
+     * @param Scheduler $scheduler
+     * @return SubordinatedScheduler
+     */
+    protected function buildSubordinatedScheduler(Scheduler $scheduler): SubordinatedScheduler
+    {
+        return SubordinatedScheduler($scheduler);
+    }
+
+    public function poolName(): string
+    {
+        return sprintf('%s#%s loop', $this->name, $this->id);
     }
 
     /**
@@ -42,12 +58,18 @@ final class Pool extends Coroutine
      */
     public function schedule(Closure $factory, int $copies = null, string $name = null): self
     {
-        $this->jobs[match (true) {
-            !is_null($name) => $name,
-            default => sprintf('#%s', self::$jobId++)
-        }] = Job::create($factory, $copies ?? 1);
+        $this->jobs[sprintf('%s#%s', $name ?? $this->poolName(), self::$jobId++)] =
+            Job::create($factory, $copies ?? 1);
 
         return $this;
+    }
+
+    protected function launch(Job $job, string $name): Task
+    {
+        return with(Task(($job->factory)(), $name))(
+            fn (Task $task) =>
+                also(fn (Task $task) => $this->scheduler->schedule($task))($task)
+        );
     }
 
     /** @throws Throwable */
@@ -60,7 +82,7 @@ final class Pool extends Coroutine
                     $this->jobs,
                     fn(Job $task, string $name) => doWhile(
                         fn() => count($this->scheduler->aliveTasks($name)) < $task->copies,
-                        fn() => $this->scheduler->schedule(Task(($task->factory)(), $name))
+                        fn() => $this->launch($task, $name)
                     )
                 );
 

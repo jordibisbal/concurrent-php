@@ -9,18 +9,20 @@ use j45l\concurrentPhp\Channel\Channel;
 use j45l\concurrentPhp\Coroutine\Coroutine;
 use j45l\concurrentPhp\Infrastructure\SystemTicker;
 use j45l\concurrentPhp\Infrastructure\Ticker;
+use j45l\concurrentPhp\Scheduler\Debug\DebuggingMainScheduler;
+use j45l\concurrentPhp\Scheduler\Debug\DebuggingSubordinatedScheduler;
 use RuntimeException;
 
 use function is_null as isNull;
 use function j45l\concurrentPhp\Coroutine\Coroutine;
 
-function Task(mixed $task, string $pool = null): Task
+function Task(mixed $task, string $poolName = null): Task
 {
     return match (true) {
-        ($task instanceof Task) && !isNull($pool) => new Task($task->coroutine, $pool),
+        ($task instanceof Task) && !isNull($poolName) => new Task($task->coroutine, $poolName),
         $task instanceof Task => $task,
-        $task instanceof Coroutine => new Task($task, $pool ?? get_class($task)),
-        $task instanceof Closure => new Task(Coroutine($task), $pool ?? Closure::class),
+        $task instanceof Coroutine => new Task($task, $poolName ?? get_class($task)),
+        $task instanceof Closure => new Task(Coroutine($task), $poolName ?? Closure::class),
         default => throw new RuntimeException(sprintf(
             'Task, Coroutine or Closure expected in %s, but %s found',
             __CLASS__,
@@ -29,24 +31,21 @@ function Task(mixed $task, string $pool = null): Task
     };
 }
 
-/**
- * @param Channel<string>|null $debuggingChannel
- * @return Scheduler
- */
+/** @param Channel<string>|null $debuggingChannel */
 function Scheduler(
     Ticker $ticker = null,
     float $quantumSeconds = null,
     float $loadExponentialFactor = null,
     Channel $debuggingChannel = null
-): Scheduler {
+): MainScheduler {
     return match (true) {
-        !isNull($debuggingChannel) =>  new DebuggingScheduler(
+        !isNull($debuggingChannel) =>  new DebuggingMainScheduler(
             $ticker ?? SystemTicker::create(),
             $quantumSeconds,
             $loadExponentialFactor,
             $debuggingChannel
         ),
-        default => new Scheduler(
+        default => new MainScheduler(
             $ticker ?? SystemTicker::create(),
             $quantumSeconds,
             $loadExponentialFactor
@@ -54,11 +53,20 @@ function Scheduler(
     };
 }
 
-function SubordinatedScheduler(Scheduler $scheduler): SubordinatedScheduler
+/** @param Channel<string>|null $debuggingChannel */
+function SubordinatedScheduler(Scheduler $scheduler, Channel $debuggingChannel = null): SubordinatedScheduler
 {
-    return new SubordinatedScheduler(
-        $scheduler->ticker(),
-        $scheduler->quantumTime(),
-        $scheduler->loadExponentialFactor()
-    );
+    return match (true) {
+        !isNull($debuggingChannel) => new DebuggingSubordinatedScheduler(
+            $scheduler->ticker(),
+            $scheduler->quantumTime(),
+            $scheduler->loadExponentialFactor(),
+            $debuggingChannel
+        ),
+        default => new SubordinatedScheduler(
+            $scheduler->ticker(),
+            $scheduler->quantumTime(),
+            $scheduler->loadExponentialFactor()
+        )
+    };
 }
