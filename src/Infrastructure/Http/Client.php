@@ -10,8 +10,7 @@ use j45l\functional\Cats\Either\Either;
 interface Client
 {
     /**
-     * @param array<mixed> $options
      * @return Either<Response>
      */
-    public function get(string $uri, array $options = null): Either;
+    public function get(string $uri): Either;
 }

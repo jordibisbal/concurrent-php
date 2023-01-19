@@ -43,6 +43,14 @@ final class DebuggingPool extends Pool
 
     protected function launch(Job $job, string $name): Task
     {
+        $this->debuggingChannel->put(
+            sprintf(
+                '  📁🚀 Pool %s#%s: Launched',
+                $this->name,
+                $this->id
+            )
+        );
+
         return with(parent::launch($job, $name))(
             fn (Task $task) => also(fn () => $this->debuggingChannel->put(
                 sprintf(
@@ -56,5 +64,22 @@ final class DebuggingPool extends Pool
                 )
             ))($task)
         );
+    }
+
+    function loop(): void
+    {
+        $this->debuggingChannel->put(sprintf(
+            '  📁🏳️ Starting pool %s#%s',
+            $this->name,
+            $this->id
+        ));
+
+        parent::loop();
+
+        $this->debuggingChannel->put(sprintf(
+            '  📁🏁 Finishing pool %s#%s',
+            $this->name,
+            $this->id
+        ));
     }
 }

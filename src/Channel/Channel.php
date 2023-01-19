@@ -58,6 +58,11 @@ class Channel
         };
     }
 
+    public function opened(): bool
+    {
+        return !$this->closed();
+    }
+
     public function count(): int
     {
         return count($this->buffer);
