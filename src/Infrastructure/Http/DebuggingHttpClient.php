@@ -31,7 +31,6 @@ final class DebuggingHttpClient implements Client
 
     public function get(string $uri, array $options = null): Either
     {
-        /** @noinspection PhpIncompatibleReturnTypeInspection */
         return compose(
             fn () => $this->debuggingChannel->put(
                 sprintf('    🌐🏳️ Http client - starting request %s', $uri)
@@ -40,6 +39,6 @@ final class DebuggingHttpClient implements Client
             fn (Maybe $result): Maybe => also(fn () => $this->debuggingChannel->put(
                 sprintf('    🌐🏁 Http client - Request %s finished', $uri)
             ))($result)
-        );
+        )(null);
     }
 }
