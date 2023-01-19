@@ -73,10 +73,10 @@ class Pool extends Coroutine
     }
 
     /** @throws Throwable */
-    private function loop(): void
+    protected function loop(): void
     {
         doWhile(
-            $this->endPredicate,
+            fn () => !(($this->endPredicate)()),
             function (): void {
                 each(
                     $this->jobs,
