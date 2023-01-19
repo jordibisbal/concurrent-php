@@ -7,9 +7,7 @@ namespace j45l\concurrentPhp\Coroutine;
 use Closure;
 use j45l\concurrentPhp\Channel\Channel;
 use j45l\concurrentPhp\Coroutine\Debug\DebuggingPool;
-use j45l\concurrentPhp\Scheduler\MainScheduler;
 use j45l\concurrentPhp\Scheduler\Scheduler;
-use Throwable;
 
 function Coroutine(Closure $fn, string $name = null): Coroutine
 {

@@ -12,3 +12,5 @@ require_once('Coroutine/Functions/Control.php');
 require_once('Coroutine/Factories.php');
 
 require_once('Scheduler/Factories.php');
+
+require_once('Infrastructure/Http/Factories.php');

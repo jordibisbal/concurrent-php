@@ -44,7 +44,6 @@ final class HttpClient implements Client
      */
     private function getForCoroutine(string $uri, array $options): Either
     {
-echo "started $uri\n";
         $ch1 = curl_init();
 
         curl_setopt($ch1, CURLOPT_URL, $uri);
@@ -83,7 +82,7 @@ echo "started $uri\n";
 
         curl_multi_remove_handle($mh, $ch1);
         curl_multi_close($mh);
-echo "finished $uri\n";
+
         return Success(new Response($statusCode, $headers, substr($result, $headersSize)));
     }
 }
