@@ -19,11 +19,14 @@ use function j45l\functional\Cats\Maybe\Some;
 use function j45l\functional\first;
 use function j45l\functional\nop;
 
+/**
+ * @template T
+ */
 class Coroutine
 {
     private static int $nextId = 1;
 
-    /** @var array<self> */
+    /** @var array<self<mixed>> */
     private static array $coroutinesRegistry = [];
 
     public readonly int $id;
@@ -58,7 +61,10 @@ class Coroutine
         unset(self::$coroutinesRegistry[$this->id]);
     }
 
-    /** @param Fiber<mixed, mixed, mixed, mixed> $fiber */
+    /**
+     * @param Fiber<mixed, mixed, mixed, mixed> $fiber
+     * @return self<mixed>|null
+     */
     public static function byFiber(Fiber $fiber): self|null
     {
         return first(self::$coroutinesRegistry, fn (Coroutine $element) => $element->fiber === $fiber);
@@ -101,6 +107,7 @@ class Coroutine
 
     /**
      * @param array<mixed> $args
+     * @return self<T>
      */
     public function start(...$args): self
     {
@@ -136,7 +143,7 @@ class Coroutine
     }
 
     /**
-     * @phpstan-return Maybe<mixed>
+     * @phpstan-return Maybe<T>
      */
     public function returnValue(): Maybe
     {

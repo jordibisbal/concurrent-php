@@ -6,12 +6,12 @@ namespace j45l\concurrentPhp\Test\Unit\Coroutine;
 
 use j45l\concurrentPhp\Channel\Channel;
 use j45l\concurrentPhp\Coroutine\Coroutine;
-use j45l\concurrentPhp\Coroutine\SimpleCoroutine;
 use j45l\concurrentPhp\Infrastructure\Ticker;
 use j45l\concurrentPhp\Scheduler\Scheduler;
 use j45l\concurrentPhp\Test\Unit\Coroutine\Stubs\TestTicker;
 use PHPUnit\Framework\TestCase;
 use Throwable;
+
 use function Functional\map;
 use function Functional\repeat;
 use function j45l\concurrentPhp\Channel\Channel;
@@ -65,21 +65,24 @@ final class SchedulerExamplesTest extends TestCase
      */
     public function testGettingLoadAverage(): void
     {
-        $channel = Channel::create();
+        $channel = Channel();
         $ticker = TestTicker::create();
-        $scheduler = Scheduler::create($ticker, 100, 0.5);
+        $scheduler = Scheduler($ticker, 100, 0.5);
 
         $ping = $this->sender($channel, 'ping', 10, 10, $ticker);
         $pong = $this->sender($channel, 'pong', 10, 20, $ticker);
-        $collector = $this->loadMonitor($scheduler, $channel);
+        $channel->setCloseOn(fn () => $ping->isTerminated() && $pong->isTerminated());
+        $loadMonitor = $this->loadMonitor($scheduler, $channel);
 
-        $channel->closeOn(fn () => $ping->isTerminated() && $pong->isTerminated());
-
-        $scheduler->schedule($ping, $pong, $collector)->run();
+        $scheduler->schedule(
+            $ping,
+            $pong,
+            $loadMonitor
+        )->run();
 
         assertEquals(
             map(range(0, 9), fn ($rounds) => $this->loadAverage($rounds + 1, 0.3)),
-            $collector->returnValue()->getOrElse(null)
+            $loadMonitor->returnValue()->getOrElse(null)
         );
     }
 
@@ -129,8 +132,8 @@ final class SchedulerExamplesTest extends TestCase
         return Coroutine(static function () use ($scheduler, $channel) {
             $loads = [];
             while (!$channel->closed()) {
-                $loads[] = $scheduler->loadAverage();
                 Coroutine::suspend();
+                $loads[] = $scheduler->loadAverage();
             }
 
             return $loads;
