@@ -8,9 +8,9 @@ use Throwable;
 
 /**
  * @template T
- * @extends Channel<T>
+ * @extends PlainChannel<T>
  */
-final class BlackHole extends Channel
+final class BlackHole extends PlainChannel
 {
     /**
      * @param T $data
