@@ -47,6 +47,8 @@ class HttpClient implements Client
         curl_setopt($ch1, CURLOPT_URL, $uri);
         curl_setopt($ch1, CURLOPT_HEADER, 1);
         curl_setopt($ch1, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($channel, CURLOPT_HTTPHEADER, ['User-Agent: Satan/0.1']);
+
 
         $mh = curl_multi_init();
 
