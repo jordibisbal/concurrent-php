@@ -32,6 +32,12 @@ interface Channel
     public function get(): mixed;
 
     /**
+     * @param Closure(mixed):mixed $getter
+     * @return T
+     */
+    public function getOnSome(Closure $getter): bool;
+
+    /**
      * @param T $data
      * @return Channel<T>
      */
