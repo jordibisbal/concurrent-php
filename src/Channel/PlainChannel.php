@@ -12,6 +12,7 @@ use j45l\concurrentPhp\Coroutine\Coroutine;
 use function array_pop as arrayPop;
 use function array_unshift as arrayUnshift;
 use function Functional\compose;
+use function j45l\concurrentPhp\Functions\also;
 use function j45l\functional\doWhile;
 
 /**
@@ -125,5 +126,15 @@ class PlainChannel implements Channel
     public function name(): string
     {
         return $this->name;
+    }
+
+    public function getOnSome(Closure $getter): bool
+    {
+        /** @noinspection SuspiciousBinaryOperationInspection */
+        /** @noinspection PhpBooleanCanBeSimplifiedInspection */
+        return match (true) {
+            $this->hasSome() => $getter($this->get()) || true,
+            default => Coroutine::suspend() || false
+        };
     }
 }
