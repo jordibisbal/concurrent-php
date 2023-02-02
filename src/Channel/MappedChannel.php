@@ -43,4 +43,9 @@ final class MappedChannel implements Channel
 
         return $this;
     }
+
+    public function getOnSome(Closure $getter): bool
+    {
+        return $this->channel->getOnSome($getter);
+    }
 }
