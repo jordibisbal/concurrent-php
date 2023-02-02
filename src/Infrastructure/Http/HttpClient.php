@@ -42,17 +42,17 @@ class HttpClient implements Client
      */
     private function getForCoroutine(string $uri): Either
     {
-        $ch1 = curl_init();
+        $channel = curl_init();
 
-        curl_setopt($ch1, CURLOPT_URL, $uri);
-        curl_setopt($ch1, CURLOPT_HEADER, 1);
-        curl_setopt($ch1, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($channel, CURLOPT_URL, $uri);
+        curl_setopt($channel, CURLOPT_HEADER, 1);
+        curl_setopt($channel, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($channel, CURLOPT_HTTPHEADER, ['User-Agent: Satan/0.1']);
 
 
         $mh = curl_multi_init();
 
-        curl_multi_add_handle($mh, $ch1);
+        curl_multi_add_handle($mh, $channel);
 
         do {
             $status = curl_multi_exec($mh, $active);
@@ -62,17 +62,17 @@ class HttpClient implements Client
         } while ($active && $status === CURLM_OK);
 
         if ($status !== CURLM_OK) {
-            curl_multi_remove_handle($mh, $ch1);
+            curl_multi_remove_handle($mh, $channel);
             curl_multi_close($mh);
 
             return Failure(Because('Curl failed'));
         }
 
-        $result = curl_multi_getcontent($ch1) ?? '';
-        $statusCode = curl_getinfo($ch1, CURLINFO_HTTP_CODE);
-        [$headers, $result] = $this->parseResult($result, curl_getinfo($ch1, CURLINFO_HEADER_SIZE));
+        $result = curl_multi_getcontent($channel) ?? '';
+        $statusCode = curl_getinfo($channel, CURLINFO_HTTP_CODE);
+        [$headers, $result] = $this->parseResult($result, curl_getinfo($channel, CURLINFO_HEADER_SIZE));
 
-        curl_multi_remove_handle($mh, $ch1);
+        curl_multi_remove_handle($mh, $channel);
         curl_multi_close($mh);
 
         return Success(new Response($statusCode, $headers, $result));
